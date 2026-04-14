@@ -2,7 +2,7 @@ import type { PageSection, ExportOptions, RenderBlock, A4PageData, ContentBlock,
 
 const A4_HEIGHT_PX = 1122; 
 const PAGE_PADDING_TOP = 60;
-const PAGE_PADDING_BOTTOM = 68;
+const PAGE_PADDING_BOTTOM = 95;
 const HEADER_HEIGHT = 50;
 const FOOTER_HEIGHT = 40;
 const FOOTNOTE_ITEM_HEIGHT = 22; 
@@ -169,28 +169,42 @@ function sliceTokens(tokens: Token[], splitAtChar: number): [Token[], Token[]] {
   return [[...left, ...leftFix.reverse()], [...rightFix, ...right]];
 }
 
-function trySplitParagraph(block: RenderBlock, maxHeight: number, measureDiv: HTMLElement, opts: ExportOptions, prevMarginBottom: number): [RenderBlock, RenderBlock] | null {  const tokens = block.tokens!;
+function trySplitParagraph(block: RenderBlock, availableHeight: number, measureDiv: HTMLElement, opts: ExportOptions, prevMarginBottom: number, currentFootnotes: string[]): [RenderBlock, RenderBlock] | null {
+  const tokens = block.tokens!;
   const isKaiti = block.isKaiti || false;
   const totalChars = tokens.reduce((sum, t) => sum + (t.v || t.term || '').length, 0);
   let low = 0, high = totalChars, best = 0;
 
-  // 二分查找最佳切断点
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const [leftTokens] = sliceTokens(tokens, mid);
-    measureDiv.innerHTML = `<div class="p${isKaiti ? ' ki' : ''}">${applyKaodian(buildInline(leftTokens, opts, []), opts)}</div>`;
+
+    const tempTerms: string[] = [];
+    measureDiv.innerHTML = `<div class="p${isKaiti ? ' ki' : ''}">${applyKaodian(buildInline(leftTokens, opts, tempTerms), opts)}</div>`;
     const el = measureDiv.firstElementChild as HTMLElement;
-  
-    // 🌟 2. 使用重叠抵消逻辑来计算切片实际占据的高度
+
     const mt = parseFloat(window.getComputedStyle(el).marginTop) || 0;
     const mb = parseFloat(window.getComputedStyle(el).marginBottom) || 0;
     const marginOverlap = Math.min(prevMarginBottom, mt);
-    const h = el.getBoundingClientRect().height + mt + mb - marginOverlap;
+    const textHeight = el.getBoundingClientRect().height + mt + mb - marginOverlap;
 
-    if (h <= maxHeight) { best = mid; low = mid + 1; } else { high = mid - 1; }
+    let fnHeight = 0;
+    if (opts.footnotes) {
+      const newFns = tempTerms.filter(t => !currentFootnotes.includes(t));
+      if (newFns.length > 0) {
+        fnHeight += newFns.length * 22; // FOOTNOTE_ITEM_HEIGHT
+        if (currentFootnotes.length === 0) fnHeight += 30; // FOOTNOTE_HEADER_HEIGHT
+      }
+    }
+
+    if (textHeight + fnHeight <= availableHeight) { 
+      best = mid; low = mid + 1; 
+    } else { 
+      high = mid - 1; 
+    }
   }
 
-  if (best < 15) return null; // 留一点余量，防止只切出个逗号
+  if (best < 15) return null;
 
   const [leftTokens, rightTokens] = sliceTokens(tokens, best);
   const leftTerms: string[] = [], rightTerms: string[] = [];
@@ -204,7 +218,8 @@ function trySplitParagraph(block: RenderBlock, maxHeight: number, measureDiv: HT
   ];
 }
 
-function trySplitQuestion(block: RenderBlock, maxHeight: number, measureDiv: HTMLElement, opts: ExportOptions, prevMarginBottom: number): [RenderBlock, RenderBlock] | null {  const q = block.qData;
+function trySplitQuestion(block: RenderBlock, availableHeight: number, measureDiv: HTMLElement, opts: ExportOptions, prevMarginBottom: number, currentFootnotes: string[]): [RenderBlock, RenderBlock] | null {
+  const q = block.qData;
   if (!q) return null;
 
   // 尝试将题干(及选项)与解析分离开
@@ -222,7 +237,7 @@ function trySplitQuestion(block: RenderBlock, maxHeight: number, measureDiv: HTM
   const marginOverlap = Math.min(prevMarginBottom, mt);
   const h = el.getBoundingClientRect().height + mt + mb - marginOverlap;
   
-  if (h > maxHeight) return null; // 连题干都放不下，直接整个换页
+  if (h > availableHeight) return null; 
 
   let botHtml = `<div class="qb qb-cont"><div class="qa">`;
   if (q.answer) {
@@ -246,12 +261,13 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
 
   const measureDiv = document.createElement('div');
   measureDiv.className = 'a4-paper measurement-layer';
-  measureDiv.style.cssText = `position:absolute; visibility:hidden; top:-9999px; width:794px; padding:60px 68px 68px 74px; font-family:'Noto Serif SC',serif;`;
+  // 🌟 2. 将写死的 68px 替换为 PAGE_PADDING_BOTTOM 变量
+  measureDiv.style.cssText = `position:absolute; visibility:hidden; top:-9999px; width:794px; padding:60px 68px ${PAGE_PADDING_BOTTOM}px 74px; font-family:'Noto Serif SC',serif;`;
   document.body.appendChild(measureDiv);
 
-  const SAFE_BUFFER = 15; // 🌟 新增：预留 15px 的安全误差带，确保页脚下方有绝对的空白区
+// 🌟 3. 将 SAFE_BUFFER 恢复为 15，它只负责吸收浏览器亚像素误差，不负责排版！
+  const SAFE_BUFFER = 15; 
   const maxContentHeight = A4_HEIGHT_PX - PAGE_PADDING_TOP - PAGE_PADDING_BOTTOM - HEADER_HEIGHT - FOOTER_HEIGHT - SAFE_BUFFER;
-
   // 🌟 修复核心：将 currentPage/currentHeight 提升到 section 循环外部
   // 原来每个 section 都强制开新页，导致即使内容极少也独占一页
   let currentPage: A4PageData = { pageNum, sectionTitle: '', knPoint: '', blocks: [], footnotes: [] };
@@ -303,14 +319,15 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
         prevMarginBottom = mb; // 🌟 3. 记录当前 block 的 mb，供下一个元素测算折叠
       } else {
         // 🌟 放不下了，触发节点切片！
-        const availableHeight = maxContentHeight - currentHeight - (currentHeight === 0 ? 0 : addedFootnoteHeight);
+        // 🌟 替换为以下代码：
+        const remainingSpace = maxContentHeight - currentHeight; // 不再提前乱扣脚注的高度
         let splitResult: [RenderBlock, RenderBlock] | null = null;
 
-        // 🌟 4. 传递 prevMarginBottom 给切片函数
         if (block.type === 'paragraph' && block.tokens) {
-          splitResult = trySplitParagraph(block, availableHeight, measureDiv, opts, prevMarginBottom);
+          // 传入 remainingSpace 和 currentPage.footnotes
+          splitResult = trySplitParagraph(block, remainingSpace, measureDiv, opts, prevMarginBottom, currentPage.footnotes);
         } else if (block.type === 'question' && block.qData) {
-          splitResult = trySplitQuestion(block, availableHeight, measureDiv, opts, prevMarginBottom);
+          splitResult = trySplitQuestion(block, remainingSpace, measureDiv, opts, prevMarginBottom, currentPage.footnotes);
         }
 
         if (splitResult) {

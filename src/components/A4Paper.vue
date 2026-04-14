@@ -53,7 +53,8 @@ const renderHtml = (html: string) => {
 
 <style scoped>
 /* 此处的样式控制真实 A4 纸的长相 */
-.a4-paper { background:var(--paper); color:var(--ink); width:794px; height: 1122px; padding:60px 68px 68px 74px; margin:0 auto 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-radius:3px; font-family:'Noto Serif SC',serif; display:flex; flex-direction:column; position:relative; overflow: hidden; }
+/* 🌟 4. padding 顺序是：上 右 下 左。将第三个值改为与 TS 中一致的 95px */
+.a4-paper { background:var(--paper); color:var(--ink); width:794px; height: 1122px; padding:60px 68px 95px 74px; margin:0 auto 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-radius:3px; font-family:'Noto Serif SC',serif; display:flex; flex-direction:column; position:relative; overflow: hidden; }
 .ph { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:7px; border-bottom:2px solid var(--accent); flex-shrink: 0;}
 .ph-l { display:flex; align-items:baseline; gap:9px;}
 .ph .mod { font-size:8px; letter-spacing:.18em; font-weight:700; color:var(--accent); text-transform:uppercase;}
