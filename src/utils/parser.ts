@@ -74,6 +74,15 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
 
       // 🌟 优化：将章节名和知识点也作为“正文段落”手动注入到 items 数组中
       const entry = map.get(key)!;
+// 🌟 优化1&3：将原本的“知识点注解”去掉，改为注入一个 h 类型的“大标题”
+      // if (kn) {
+      //   entry.items.push({ 
+      //     type: 'h', 
+      //     plain: kn, 
+      //     tokens: [{ t: 'tx', v: kn }] 
+      //   });
+      // }
+      // 🌟 优化1：正文继续保留段落标题（第一节、第二节等）
       if (sec) {
         entry.items.push({ 
           type: 'h', 
@@ -81,14 +90,6 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
           tokens: [{ t: 'tx', v: sec }] 
         });
       }
-      // if (kn) {
-      //   entry.items.push({ 
-      //     type: 'p', 
-      //     plain: kn, 
-      //     tokens: [{ t: 'tx', v: kn }],
-      //     kaiti: true // 给知识点设置楷体样式，以示区分
-      //   });
-      // }
     }
     const entry = map.get(key)!;
     if (!entry.knPoint && kn) entry.knPoint = kn;

@@ -88,8 +88,16 @@ function createRenderBlocks(section: PageSection, opts: ExportOptions): RenderBl
       flushQ(); flushKi();
       const txt = item.plain.trim();
       let level = 'h4';
-      if (/^第[一二三四五六七八九十\d]+[节章]/.test(txt)) level = 'h2';
-      else if (/^[一二三四五六七八九十]+[、.]/.test(txt)) level = 'h3';
+      
+      // 🌟 优化3：如果文本内容等于当前章节的知识模块（或以知识模块开头），则分配 h1 大字体级别
+      if (txt === section.knPoint || /^知识模块/.test(txt)) {
+        level = 'h1';
+      } else if (/^第[一二三四五六七八九十\d]+[节章]/.test(txt)) {
+        level = 'h2';
+      } else if (/^[一二三四五六七八九十]+[、.]/.test(txt)) {
+        level = 'h3';
+      }
+      
       blocks.push({
         id: `blk_${blockIdCounter++}`, type: 'heading', terms,
         html: `<div class="${level}">${buildInline(item.tokens, opts, terms)}</div>`

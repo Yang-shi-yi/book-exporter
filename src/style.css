@@ -13,28 +13,49 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 /* ⬇️ 以下均为严苛的出版级正文排版规范，供页面和测量容器共享 ⬇️ */
 
 /* 章节层级 */
-.h2 { font-size:13px; font-weight:700; color:var(--accent); line-height:1.7; padding-left:9px; border-left:3px solid var(--accent); margin:20px 0 9px;}
-.h3 { font-size:12.5px; font-weight:600; color:#1e1206; line-height:1.7; margin:16px 0 7px; padding-bottom:3px; border-bottom:1px solid var(--rule);}
-.h4 { font-size:11.5px; font-weight:600; color:var(--mid); line-height:1.6; font-style:italic; margin:12px 0 5px;}
-.h2:first-child, .h3:first-child, .h4:first-child { margin-top:0;}
-
-/* 确保正文中的 h2 (章节标题) 更有出版感 */
-.h2 {
-  font-size: 16px; /* 适当加大 */
-  text-align: center; /* 居中显示 */
-  border-left: none; /* 移除侧边条，改为居中装饰 */
-  margin: 30px 0 15px;
+/* 🌟 优化 3：h1 模块大标题 - 大字体、居中、无底线 */
+.h1 { 
+  font-size: 22px; 
+  font-weight: 700; 
+  color: var(--accent); 
+  text-align: center; 
+  margin: 15px 0 30px; 
   letter-spacing: 0.1em;
 }
 
-/* 知识点在正文中的表现 */
-.p.ki {
-  font-family: "KaiTi", "STKaiti", serif;
-  background: var(--ann-header);
-  padding: 5px 10px;
-  border-radius: 4px;
-  text-indent: 0; /* 知识点标签不缩进 */
+/* h2 章节标题 - 保留左侧强调线，无底线 */
+.h2 { 
+  font-size: 14px; 
+  font-weight: 700; 
+  color: var(--accent); 
+  line-height: 1.7; 
+  padding-left: 9px; 
+  border-left: 3px solid var(--accent); 
+  margin: 24px 0 12px;
 }
+
+/* 🌟 优化 2：h3 段落标题 - 彻底移除 border-bottom 横线 */
+.h3 { 
+  font-size: 12.5px; 
+  font-weight: 600; 
+  color: #1e1206; 
+  line-height: 1.7; 
+  margin: 16px 0 7px; 
+  padding-bottom: 0; 
+  border-bottom: none; /* 明确设置为 none 确保横线消失 */
+}
+
+.h4 { 
+  font-size: 11.5px; 
+  font-weight: 600; 
+  color: var(--mid); 
+  line-height: 1.6; 
+  font-style: italic; 
+  margin: 12px 0 5px;
+}
+/* 🌟 优化 2：h3、h4 段落标题 - 彻底移除 margin-top，避免段落间不必要的间距 */
+.h2:first-child, .h3:first-child, .h4:first-child { margin-top:0;}
+
 /* 书籍正文基准段落：两端对齐、首行缩进、黄金行高 */
 .p { font-size:12px; line-height:2.05; color:var(--ink); margin-bottom:7px; text-align:justify; text-justify: inter-ideograph; text-indent:2em; word-break:break-word;}
 .p:last-child { margin-bottom:0;}
