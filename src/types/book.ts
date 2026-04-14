@@ -26,9 +26,19 @@ export interface ExportOptions {
   kaodian: boolean;
 }
 
-// 渲染层专属类型 (将平铺的块聚合为结构化的 UI 块)
-export type RenderBlock = 
-  | { type: 'heading'; level: string; html: string }
-  | { type: 'paragraph'; html: string; isKaiti: boolean }
-  | { type: 'annotation-box'; label: string; bodyHtml: string }
-  | { type: 'question'; num: string; qType: string; stem: string; options: string[]; answer: string; kp: string; analysis: string };
+// 供 JS 排版引擎使用的渲染块
+export interface RenderBlock {
+  id: string;
+  type: 'heading' | 'paragraph' | 'annotation-box' | 'question';
+  html: string;
+  terms: string[];
+}
+
+// 物理 A4 页面结构
+export interface A4PageData {
+  pageNum: number;
+  sectionTitle: string;
+  knPoint: string;
+  blocks: RenderBlock[];
+  footnotes: string[];
+}
