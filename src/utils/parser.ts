@@ -1,0 +1,156 @@
+import type { PageSection, ContentBlock, Token } from '../types/book';
+
+export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips: string[] } {
+  const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
+  const tooltips = new Set<string>();
+
+  // 1. 收集 tooltip
+  doc.querySelectorAll('span.tooltip, span.tooltipstered').forEach(el => {
+    const t = el.textContent?.trim();
+    if (t) tooltips.add(t);
+  });
+
+  // 2. 清理无关元素 (v7 新增规则)
+  const NOISE = [
+    '#loading','.loading','script','style',
+    '.notes','.notes-mark','.notes-mark2','.Download',
+    '#goToTop','.super-four-header','.super-four-nav-button',
+    '.super-four-footer','#pop','#mask','.mask-next','.tk-next',
+    '#marker-color-pop','#marker-editor-pop','#marker-note-dialog-container',
+    '.unActivatedMask','.unActivatedPop',
+    'a.a1','a.pc','.crumbsBar','.courseStudy-head','.coursePath',
+    '.b-shadow-f','img.exp'
+  ];
+  NOISE.forEach(sel => {
+    doc.querySelectorAll(sel).forEach(el => {
+      if (!el.classList?.contains('b-page')) el.remove?.();
+    });
+  });
+
+  // 3. 找书页并排序 (v7 规则)
+  let pageEls = Array.from(doc.querySelectorAll('.b-page'));
+  const pagesWithSort = pageEls.map(p => {
+    const c = p.querySelector('.b-counter');
+    let n = 99999;
+    if (c) {
+      const m = c.textContent?.match(/^(\d+)/);
+      if (m) n = parseInt(m[1]);
+    } else {
+      const m = p.className.match(/\bb-page-(\d+)\b/);
+      if (m) n = parseInt(m[1]);
+    }
+    return { el: p, sortKey: n };
+  });
+  pagesWithSort.sort((a, b) => a.sortKey - b.sortKey);
+
+  // 4. 提取内容结构
+  const map = new Map<string, { title: string, knPoint: string, items: ContentBlock[], seenIds: Set<string> }>();
+  const order: string[] = [];
+
+  pagesWithSort.forEach(({ el: page }) => {
+    if (page.querySelector('.b-page-blank')) return;
+    const wrap = page.querySelector('.b-wrap');
+    if (!wrap) return;
+
+    let sec = '', kn = '';
+    const knEl = wrap.querySelector('.kn');
+    if (knEl) {
+      const h2 = knEl.querySelector('h2');
+      const f16 = knEl.querySelector('.f16');
+      if (h2) sec = h2.textContent?.trim() || '';
+      if (f16) kn = f16.textContent?.trim() || '';
+    }
+    if (!sec) {
+      wrap.querySelectorAll('[id^="div_kid_"] h3').forEach(h3 => {
+        const t = h3.textContent?.trim() || '';
+        if (!sec && /第[一二三四五六七八九十\d]+节/.test(t)) sec = t;
+      });
+    }
+
+    const key = sec || '__root__';
+    if (!map.has(key)) {
+      map.set(key, { title: sec, knPoint: kn, items: [], seenIds: new Set() });
+      order.push(key);
+    }
+    const entry = map.get(key)!;
+    if (!entry.knPoint && kn) entry.knPoint = kn;
+
+    const divKidEls = wrap.querySelectorAll('[id^="div_kid_"]');
+
+    divKidEls.forEach(div => {
+      const divId = div.getAttribute('id');
+      if (!divId || entry.seenIds.has(divId)) return;
+      const rawTxt = div.textContent?.trim();
+      if (!rawTxt) return;
+      entry.seenIds.add(divId);
+
+      const h3 = div.querySelector('h3');
+      if (h3) {
+        const tokens = parseInline(h3);
+        const plain = plainText(tokens).trim();
+        if (plain && plain !== sec && !(/^第[一二三四五六七八九十\d]+节/.test(plain) && plain === sec)) {
+          entry.items.push({ type: 'h', tokens, plain });
+        }
+      }
+
+      div.querySelectorAll('p').forEach(p => {
+        const tokens = parseInline(p);
+        const plain = plainText(tokens).trim();
+        if (!plain) return;
+        const kaiti = !!p.querySelector('font[face="楷体"]');
+        const bold = !!p.querySelector('b,strong');
+        entry.items.push({ type: 'p', tokens, plain, kaiti, bold });
+      });
+    });
+
+    // Fallback: Pages without div_kid_
+    if (divKidEls.length === 0) {
+      wrap.querySelectorAll('p').forEach(p => {
+        if (p.closest('.kn,.b-counter')) return;
+        const tokens = parseInline(p);
+        const plain = plainText(tokens).trim();
+        if (!plain) return;
+
+        const synId = 'noKid_' + plain.slice(0, 40).replace(/\s+/g, '_');
+        if (entry.seenIds.has(synId)) return;
+        entry.seenIds.add(synId);
+
+        const kaiti = !!p.querySelector('font[face="楷体"]');
+        const bold = !!p.querySelector('b,strong');
+        entry.items.push({ type: 'p', tokens, plain, kaiti, bold });
+      });
+    }
+  });
+
+  const pages = order.map(k => {
+    const e = map.get(k)!;
+    return { section: e.title, knPoint: e.knPoint, items: e.items };
+  }).filter(s => s.items.length > 0);
+
+  return { pages, tooltips: Array.from(tooltips) };
+}
+
+function parseInline(el: Element): Token[] {
+  const res: Token[] = [];
+  function walk(node: Node) {
+    if (node.nodeType === 3 && node.textContent) { res.push({ t: 'tx', v: node.textContent }); return; }
+    if (node.nodeType !== 1) return;
+    const element = node as Element;
+    const tag = element.tagName.toLowerCase();
+    
+    if (tag === 'a') return;
+    if (tag === 'span' && (element.classList.contains('tooltip') || element.classList.contains('tooltipstered'))) {
+      const term = element.textContent?.trim();
+      if (term) res.push({ t: 'tip', term }); return;
+    }
+    if (tag === 'b' || tag === 'strong') { res.push({ t: 'b1' }); element.childNodes.forEach(walk); res.push({ t: 'b0' }); return; }
+    if (tag === 'u') { res.push({ t: 'u1' }); element.childNodes.forEach(walk); res.push({ t: 'u0' }); return; }
+    element.childNodes.forEach(walk);
+  }
+  el.childNodes.forEach(walk);
+  return res;
+}
+
+function plainText(tokens: Token[]): string {
+  return tokens.map(t => t.t === 'tx' ? t.v : t.t === 'tip' ? t.term : '').join('');
+}
