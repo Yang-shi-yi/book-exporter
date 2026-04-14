@@ -165,8 +165,7 @@ function sliceTokens(tokens: Token[], splitAtChar: number): [Token[], Token[]] {
   return [[...left, ...leftFix.reverse()], [...rightFix, ...right]];
 }
 
-function trySplitParagraph(block: RenderBlock, maxHeight: number, measureDiv: HTMLElement, opts: ExportOptions): [RenderBlock, RenderBlock] | null {
-  const tokens = block.tokens!;
+function trySplitParagraph(block: RenderBlock, maxHeight: number, measureDiv: HTMLElement, opts: ExportOptions, prevMarginBottom: number): [RenderBlock, RenderBlock] | null {  const tokens = block.tokens!;
   const isKaiti = block.isKaiti || false;
   const totalChars = tokens.reduce((sum, t) => sum + (t.v || t.term || '').length, 0);
   let low = 0, high = totalChars, best = 0;
@@ -177,8 +176,13 @@ function trySplitParagraph(block: RenderBlock, maxHeight: number, measureDiv: HT
     const [leftTokens] = sliceTokens(tokens, mid);
     measureDiv.innerHTML = `<div class="p${isKaiti ? ' ki' : ''}">${applyKaodian(buildInline(leftTokens, opts, []), opts)}</div>`;
     const el = measureDiv.firstElementChild as HTMLElement;
-    // const h = el.getBoundingClientRect().height + parseFloat(window.getComputedStyle(el).marginTop) + parseFloat(window.getComputedStyle(el).marginBottom);
-    const h = el.getBoundingClientRect().height + (parseFloat(window.getComputedStyle(el).marginTop) || 0) + (parseFloat(window.getComputedStyle(el).marginBottom) || 0);
+  
+    // 🌟 2. 使用重叠抵消逻辑来计算切片实际占据的高度
+    const mt = parseFloat(window.getComputedStyle(el).marginTop) || 0;
+    const mb = parseFloat(window.getComputedStyle(el).marginBottom) || 0;
+    const marginOverlap = Math.min(prevMarginBottom, mt);
+    const h = el.getBoundingClientRect().height + mt + mb - marginOverlap;
+
     if (h <= maxHeight) { best = mid; low = mid + 1; } else { high = mid - 1; }
   }
 
@@ -196,8 +200,7 @@ function trySplitParagraph(block: RenderBlock, maxHeight: number, measureDiv: HT
   ];
 }
 
-function trySplitQuestion(block: RenderBlock, maxHeight: number, measureDiv: HTMLElement, opts: ExportOptions): [RenderBlock, RenderBlock] | null {
-  const q = block.qData;
+function trySplitQuestion(block: RenderBlock, maxHeight: number, measureDiv: HTMLElement, opts: ExportOptions, prevMarginBottom: number): [RenderBlock, RenderBlock] | null {  const q = block.qData;
   if (!q) return null;
 
   // 尝试将题干(及选项)与解析分离开
@@ -207,8 +210,14 @@ function trySplitQuestion(block: RenderBlock, maxHeight: number, measureDiv: HTM
 
   measureDiv.innerHTML = topHtml;
   const el = measureDiv.firstElementChild as HTMLElement;
-  // const h = el.getBoundingClientRect().height + parseFloat(window.getComputedStyle(el).marginTop) + parseFloat(window.getComputedStyle(el).marginBottom);
-  const h = el.getBoundingClientRect().height + (parseFloat(window.getComputedStyle(el).marginTop) || 0) + (parseFloat(window.getComputedStyle(el).marginBottom) || 0);
+  
+  
+  // 🌟 2. 补齐题目容器的高度折叠逻辑
+  const mt = parseFloat(window.getComputedStyle(el).marginTop) || 0;
+  const mb = parseFloat(window.getComputedStyle(el).marginBottom) || 0;
+  const marginOverlap = Math.min(prevMarginBottom, mt);
+  const h = el.getBoundingClientRect().height + mt + mb - marginOverlap;
+  
   if (h > maxHeight) return null; // 连题干都放不下，直接整个换页
 
   let botHtml = `<div class="qb qb-cont"><div class="qa">`;
@@ -242,6 +251,7 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
   // 原来每个 section 都强制开新页，导致即使内容极少也独占一页
   let currentPage: A4PageData = { pageNum, sectionTitle: '', knPoint: '', blocks: [], footnotes: [] };
   let currentHeight = 0;
+  let prevMarginBottom = 0; // 🌟 1. 新增：记录上一个块的底部边距
 
   for (const section of sections) {
     const queue = createRenderBlocks(section, opts);
@@ -264,7 +274,10 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
       // 增加 || 0 防止 parseFloat 产生 NaN
       const mt = parseFloat(style.marginTop) || 0;
       const mb = parseFloat(style.marginBottom) || 0;
-      const totalBlockHeight = blockHeight + mt + mb;
+
+      // 🌟 2. 修复核心：计算 CSS 边距折叠，减去重叠部分的幽灵高度
+      const marginOverlap = currentHeight === 0 ? 0 : Math.min(prevMarginBottom, mt);
+      const totalBlockHeight = blockHeight + mt + mb - marginOverlap;
       
       const newFootnotes = block.terms.filter(t => !currentPage.footnotes.includes(t));
       let addedFootnoteHeight = 0;
@@ -281,15 +294,18 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
         if (opts.footnotes) newFootnotes.forEach(t => currentPage.footnotes.push(t));
         // 🌟 修复：始终将脚注高度计入 currentHeight，避免首个 block 的脚注占高被漏算导致后续页面溢出
         currentHeight += totalBlockHeight + addedFootnoteHeight;
+
+        prevMarginBottom = mb; // 🌟 3. 记录当前 block 的 mb，供下一个元素测算折叠
       } else {
         // 🌟 放不下了，触发节点切片！
         const availableHeight = maxContentHeight - currentHeight - (currentHeight === 0 ? 0 : addedFootnoteHeight);
         let splitResult: [RenderBlock, RenderBlock] | null = null;
 
+        // 🌟 4. 传递 prevMarginBottom 给切片函数
         if (block.type === 'paragraph' && block.tokens) {
-          splitResult = trySplitParagraph(block, availableHeight, measureDiv, opts);
+          splitResult = trySplitParagraph(block, availableHeight, measureDiv, opts, prevMarginBottom);
         } else if (block.type === 'question' && block.qData) {
-          splitResult = trySplitQuestion(block, availableHeight, measureDiv, opts);
+          splitResult = trySplitQuestion(block, availableHeight, measureDiv, opts, prevMarginBottom);
         }
 
         if (splitResult) {
@@ -306,6 +322,7 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
         pageNum++;
         currentPage = { pageNum, sectionTitle: section.section, knPoint: section.knPoint, blocks: [], footnotes: [] };
         currentHeight = 0;
+        prevMarginBottom = 0; // 🌟 5. 翻页时重置底部边距
       }
     }
     // 🌟 修复：移除每个 section 末尾的强制换页。内容将跨 section 继续填充当前页，

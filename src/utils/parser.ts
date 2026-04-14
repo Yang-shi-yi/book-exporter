@@ -103,18 +103,13 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
       if (!rawTxt) return;
       entry.seenIds.add(divId);
 
-      const h3 = div.querySelector('h3');
-      if (h3) {
+      div.querySelectorAll('h3').forEach(h3 => {
         const tokens = parseInline(h3);
         const plain = plainText(tokens).trim();
-        // if (plain && plain !== sec && !(/^第[一二三四五六七八九十\d]+节/.test(plain) && plain === sec)) {
-        //   entry.items.push({ type: 'h', tokens, plain });
-        // }
-        // ✅ 改为直接推入，不再进行排除：
-        if (plain) {
-          entry.items.push({ type: 'h', tokens, plain });
+        if (plain && plain !== sec) {
+            entry.items.push({ type: 'h', tokens, plain });
         }
-      }
+      });
 
       div.querySelectorAll('p').forEach(p => {
         const tokens = parseInline(p);
@@ -128,9 +123,9 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
 
     // Fallback: Pages without div_kid_
     if (divKidEls.length === 0) {
-      wrap.querySelectorAll('p').forEach(p => {
-        if (p.closest('.kn,.b-counter')) return;
-        const tokens = parseInline(p);
+      wrap.querySelectorAll('h3, p').forEach(el => {
+        if (el.closest('.kn,.b-counter')) return;
+        const tokens = parseInline(el);
         const plain = plainText(tokens).trim();
         if (!plain) return;
 
@@ -138,9 +133,16 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
         if (entry.seenIds.has(synId)) return;
         entry.seenIds.add(synId);
 
-        const kaiti = !!p.querySelector('font[face="楷体"]');
-        const bold = !!p.querySelector('b,strong');
-        entry.items.push({ type: 'p', tokens, plain, kaiti, bold });
+        // 根据标签名判断是推入标题(h)还是段落(p)
+        if (el.tagName.toLowerCase() === 'h3') {
+          if (plain !== sec) {
+            entry.items.push({ type: 'h', tokens, plain });
+          }
+        } else {
+          const kaiti = !!el.querySelector('font[face="楷体"]');
+          const bold = !!el.querySelector('b,strong');
+          entry.items.push({ type: 'p', tokens, plain, kaiti, bold });
+        }
       });
     }
   });
