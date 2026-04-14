@@ -172,9 +172,13 @@ function sliceTokens(tokens: Token[], splitAtChar: number): [Token[], Token[]] {
 function trySplitParagraph(block: RenderBlock, availableHeight: number, measureDiv: HTMLElement, opts: ExportOptions, prevMarginBottom: number, currentFootnotes: string[]): [RenderBlock, RenderBlock] | null {
   const tokens = block.tokens!;
   const isKaiti = block.isKaiti || false;
-  const totalChars = tokens.reduce((sum, t) => sum + (t.v || t.term || '').length, 0);
+  // 提取纯文本，用于后续的语义边界分析
+  const plainText = tokens.map(t => t.v || t.term || '').join('');
+  const totalChars = plainText.length;
+  
   let low = 0, high = totalChars, best = 0;
 
+  // 1. 物理极限测算 (保持不变)
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const [leftTokens] = sliceTokens(tokens, mid);
@@ -192,8 +196,8 @@ function trySplitParagraph(block: RenderBlock, availableHeight: number, measureD
     if (opts.footnotes) {
       const newFns = tempTerms.filter(t => !currentFootnotes.includes(t));
       if (newFns.length > 0) {
-        fnHeight += newFns.length * 22; // FOOTNOTE_ITEM_HEIGHT
-        if (currentFootnotes.length === 0) fnHeight += 30; // FOOTNOTE_HEADER_HEIGHT
+        fnHeight += newFns.length * 22; 
+        if (currentFootnotes.length === 0) fnHeight += 30; 
       }
     }
 
@@ -204,12 +208,50 @@ function trySplitParagraph(block: RenderBlock, availableHeight: number, measureD
     }
   }
 
-  if (best < 15) return null;
+  let splitAt = best;
 
-  const [leftTokens, rightTokens] = sliceTokens(tokens, best);
+  // 2. 粗调：出版级孤行控制 (Orphan Control)
+  let rightCharCount = totalChars - splitAt;
+  if (rightCharCount > 0 && rightCharCount < 45) {
+    splitAt = Math.max(0, splitAt - 45);
+  }
+
+  // 🌟🌟🌟 3. 微调：智能标点与语义边界吸附 (Semantic Snapping) 🌟🌟🌟
+  // 往前寻找最安全的断句点，最多回溯 20 个字符防止死循环
+  let backtrackCount = 0;
+  while (splitAt > 0 && splitAt < plainText.length && backtrackCount < 20) {
+    const prevChar = plainText[splitAt - 1];
+    const currChar = plainText[splitAt];
+
+    // 规则A(避首)：下一页的开头不能是这些闭合/停顿标点
+    const isBadStart = /[，。、；：？！）】》”’\.,!?:)]/.test(currChar);
+    
+    // 规则B(避尾)：上一页的结尾不能是这些起始标点
+    const isBadEnd = /[（【《“‘(]/.test(prevChar);
+    
+    // 规则C(英文/数字防断)：不能把连续的英文字母或数字切成两半 (例如 "19" 变成 "1" 和 "9")
+    const isWordBreak = /[a-zA-Z0-9]/.test(prevChar) && /[a-zA-Z0-9]/.test(currChar);
+    
+    // 规则D(单位防断)：不能把数字和它紧挨着的量词/单位切断 (例如 "19" 和 "世纪", "100" 和 "%")
+    const isUnitBreak = /[0-9]/.test(prevChar) && /[世纪年月日吨千克米厘米%]/u.test(currChar);
+
+    if (isBadStart || isBadEnd || isWordBreak || isUnitBreak) {
+      splitAt--; // 这个位置不合规，往前退一个字再试
+      backtrackCount++;
+    } else {
+      break; // 恭喜，找到完美的排版边界！
+    }
+  }
+
+  // 4. 底线防守：如果切分后留在当前页的文本实在太少（少于一行）
+  if (splitAt < 35) {
+    return null; // 放弃切片，整个段落移到下一页
+  }
+
+  // 5. 执行最终切片
+  const [leftTokens, rightTokens] = sliceTokens(tokens, splitAt);
   const leftTerms: string[] = [], rightTerms: string[] = [];
   const topHtml = `<div class="p${isKaiti ? ' ki' : ''}">${applyKaodian(buildInline(leftTokens, opts, leftTerms), opts)}</div>`;
-  // 第二部分增加 p-cont 类，取消首行缩进
   const botHtml = `<div class="p${isKaiti ? ' ki' : ''} p-cont">${applyKaodian(buildInline(rightTokens, opts, rightTerms), opts)}</div>`;
 
   return [
