@@ -26,15 +26,17 @@ export interface ExportOptions {
   kaodian: boolean;
 }
 
-// 供 JS 排版引擎使用的渲染块
 export interface RenderBlock {
   id: string;
   type: 'heading' | 'paragraph' | 'annotation-box' | 'question';
   html: string;
   terms: string[];
+  // 🌟 新增：供节点切片算法使用的数据备份
+  tokens?: Token[];
+  isKaiti?: boolean;
+  qData?: any;
 }
 
-// 物理 A4 页面结构
 export interface A4PageData {
   pageNum: number;
   sectionTitle: string;

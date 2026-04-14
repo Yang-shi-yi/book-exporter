@@ -28,19 +28,12 @@ function buildInline(tokens: Token[], opts: ExportOptions, blockTerms: string[])
 }
 
 interface QuestionBuffer {
-  num: string;
-  qType: string;
-  stem: string;
-  options: string[];
-  answer: string;
-  kp: string;
-  analysis: string;
+  num: string; qType: string; stem: string; options: string[]; answer: string; kp: string; analysis: string;
 }
 
 function createRenderBlocks(section: PageSection, opts: ExportOptions): RenderBlock[] {
   const blocks: RenderBlock[] = [];
   let inQ = false;
-  // 严格类型定义，消除 any 警告
   let qBuf: QuestionBuffer = { num: '', qType: '', stem: '', options: [], answer: '', kp: '', analysis: '' };
   let kiBuffer: ContentBlock[] = [];
   let blockIdCounter = 0;
@@ -51,22 +44,16 @@ function createRenderBlocks(section: PageSection, opts: ExportOptions): RenderBl
     let label = '';
     let bodyHtml = '';
     let startIdx = 0;
-    const first = kiBuffer[0];
-    
-    if (first && /^【.{1,12}】$/.test(first.plain.trim())) {
-      label = `<div class="ann-box-hd">${esc(first.plain.trim())}</div>`;
+    if (kiBuffer[0] && /^【.{1,12}】$/.test(kiBuffer[0].plain.trim())) {
+      label = `<div class="ann-box-hd">${esc(kiBuffer[0].plain.trim())}</div>`;
       startIdx = 1;
     }
     for (let i = startIdx; i < kiBuffer.length; i++) {
       const item = kiBuffer[i];
       const ih = buildInline(item.tokens, opts, terms);
       const txt = item.plain.trim();
-      if (item.bold || /^\d+[.、]/.test(txt)) {
-        bodyHtml += `<div class="ann-h">${ih}</div>`;
-      } else {
-        const noI = /^（[一二三四五六七八九十\d]+）/.test(txt) || /^\([1-9]\)/.test(txt);
-        bodyHtml += `<div class="ann-p${noI ? ' no-i' : ''}">${applyKaodian(ih, opts)}</div>`;
-      }
+      if (item.bold || /^\d+[.、]/.test(txt)) bodyHtml += `<div class="ann-h">${ih}</div>`;
+      else bodyHtml += `<div class="ann-p${(/^（[一二三四五六七八九十\d]+）/.test(txt) || /^\([1-9]\)/.test(txt)) ? ' no-i' : ''}">${applyKaodian(ih, opts)}</div>`;
     }
     blocks.push({
       id: `blk_${blockIdCounter++}`, type: 'annotation-box', terms,
@@ -89,10 +76,9 @@ function createRenderBlocks(section: PageSection, opts: ExportOptions): RenderBl
           qHtml += `</div>`;
         }
         qHtml += `</div>`;
-        blocks.push({ id: `blk_${blockIdCounter++}`, type: 'question', terms: [], html: qHtml });
+        blocks.push({ id: `blk_${blockIdCounter++}`, type: 'question', terms: [], html: qHtml, qData: { ...qBuf } });
       }
-      inQ = false; 
-      qBuf = { num: '', qType: '', stem: '', options: [], answer: '', kp: '', analysis: '' };
+      inQ = false; qBuf = { num: '', qType: '', stem: '', options: [], answer: '', kp: '', analysis: '' };
     }
   };
 
@@ -110,7 +96,6 @@ function createRenderBlocks(section: PageSection, opts: ExportOptions): RenderBl
       });
       return;
     }
-
     if (item.type === 'p') {
       const txt = item.plain.trim();
       const qm = txt.match(/^（(\d+)）（(单选|多选|判断|不定项选择)）([\s\S]+)/);
@@ -121,42 +106,116 @@ function createRenderBlocks(section: PageSection, opts: ExportOptions): RenderBl
       }
       if (item.kaiti && /^\d+[.、]\s*典型例题/.test(txt)) {
         flushKi();
-        if (opts.questions) blocks.push({
-          id: `blk_${blockIdCounter++}`, type: 'heading', terms,
-          html: `<div class="h4">${buildInline(item.tokens, opts, terms)}</div>`
-        });
+        if (opts.questions) blocks.push({ id: `blk_${blockIdCounter++}`, type: 'heading', terms, html: `<div class="h4">${buildInline(item.tokens, opts, terms)}</div>` });
         return;
       }
-
       if (inQ) {
         if (/^[A-D][.．]/.test(txt)) qBuf.options.push(txt);
         else if (/^【答案】/.test(txt)) qBuf.answer = txt.replace('【答案】', '').trim();
         else if (/^【解析】/.test(txt)) {
-          const afterTag = txt.replace(/^【解析】/, '').trim();
-          const kpMatch = afterTag.match(/^(本题考查的知识点[：:][^\n]*)/);
+          const kpMatch = txt.replace(/^【解析】/, '').trim().match(/^(本题考查的知识点[：:][^\n]*)/);
           qBuf.kp = kpMatch ? kpMatch[1].trim() : '';
-          qBuf.analysis = kpMatch ? afterTag.slice(kpMatch[0].length).trim() : afterTag;
+          qBuf.analysis = kpMatch ? txt.replace(/^【解析】/, '').trim().slice(kpMatch[0].length).trim() : txt.replace(/^【解析】/, '').trim();
         } else if (/^【/.test(txt)) {
           flushQ();
           if (item.kaiti) kiBuffer.push(item);
-          else {
-            flushKi();
-            blocks.push({ id: `blk_${blockIdCounter++}`, type: 'paragraph', terms, html: `<div class="p">${applyKaodian(buildInline(item.tokens, opts, terms), opts)}</div>`});
-          }
-        } else {
-          if (qBuf.analysis || qBuf.stem) qBuf.analysis = (qBuf.analysis || qBuf.stem) + ' ' + txt;
-        }
+          else { flushKi(); blocks.push({ id: `blk_${blockIdCounter++}`, type: 'paragraph', terms, html: `<div class="p">${applyKaodian(buildInline(item.tokens, opts, terms), opts)}</div>`, tokens: item.tokens, isKaiti: false}); }
+        } else { if (qBuf.analysis || qBuf.stem) qBuf.analysis = (qBuf.analysis || qBuf.stem) + ' ' + txt; }
         return;
       }
-
       if (item.kaiti) { kiBuffer.push(item); return; }
       flushQ(); flushKi();
-      blocks.push({ id: `blk_${blockIdCounter++}`, type: 'paragraph', terms, html: `<div class="p">${applyKaodian(buildInline(item.tokens, opts, terms), opts)}</div>` });
+      blocks.push({ id: `blk_${blockIdCounter++}`, type: 'paragraph', terms, html: `<div class="p">${applyKaodian(buildInline(item.tokens, opts, terms), opts)}</div>`, tokens: item.tokens, isKaiti: false });
     }
   });
-
   flushQ(); flushKi();
   return blocks;
+}
+
+// ── 节点切片算法 ──
+function sliceTokens(tokens: Token[], splitAtChar: number): [Token[], Token[]] {
+  const left: Token[] = [], right: Token[] = [];
+  let count = 0; let activeTags: string[] = [];
+  for (const t of tokens) {
+    if (t.t === 'b1') { activeTags.push('b'); left.push(t); continue; }
+    if (t.t === 'b0') { activeTags = activeTags.filter(x => x !== 'b'); left.push(t); continue; }
+    if (t.t === 'u1') { activeTags.push('u'); left.push(t); continue; }
+    if (t.t === 'u0') { activeTags = activeTags.filter(x => x !== 'u'); left.push(t); continue; }
+    const text = t.v || t.term || '';
+    if (count >= splitAtChar) { right.push(t); } 
+    else if (count + text.length <= splitAtChar) { left.push(t); count += text.length; } 
+    else {
+      const take = splitAtChar - count;
+      if (t.t === 'tx') { left.push({ t: 'tx', v: text.slice(0, take) }); right.push({ t: 'tx', v: text.slice(take) }); } 
+      else if (t.t === 'tip') { (take >= text.length / 2) ? left.push(t) : right.push(t); }
+      count = splitAtChar;
+    }
+  }
+  const leftFix: Token[] = [], rightFix: Token[] = [];
+  if (activeTags.includes('b')) { leftFix.push({ t: 'b0' }); rightFix.push({ t: 'b1' }); }
+  if (activeTags.includes('u')) { leftFix.push({ t: 'u0' }); rightFix.push({ t: 'u1' }); }
+  return [[...left, ...leftFix.reverse()], [...rightFix, ...right]];
+}
+
+function trySplitParagraph(block: RenderBlock, maxHeight: number, measureDiv: HTMLElement, opts: ExportOptions): [RenderBlock, RenderBlock] | null {
+  const tokens = block.tokens!;
+  const isKaiti = block.isKaiti || false;
+  const totalChars = tokens.reduce((sum, t) => sum + (t.v || t.term || '').length, 0);
+  let low = 0, high = totalChars, best = 0;
+
+  // 二分查找最佳切断点
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const [leftTokens] = sliceTokens(tokens, mid);
+    measureDiv.innerHTML = `<div class="p${isKaiti ? ' ki' : ''}">${applyKaodian(buildInline(leftTokens, opts, []), opts)}</div>`;
+    const el = measureDiv.firstElementChild as HTMLElement;
+    const h = el.getBoundingClientRect().height + parseFloat(window.getComputedStyle(el).marginTop) + parseFloat(window.getComputedStyle(el).marginBottom);
+    if (h <= maxHeight) { best = mid; low = mid + 1; } else { high = mid - 1; }
+  }
+
+  if (best < 15) return null; // 留一点余量，防止只切出个逗号
+
+  const [leftTokens, rightTokens] = sliceTokens(tokens, best);
+  const leftTerms: string[] = [], rightTerms: string[] = [];
+  const topHtml = `<div class="p${isKaiti ? ' ki' : ''}">${applyKaodian(buildInline(leftTokens, opts, leftTerms), opts)}</div>`;
+  // 第二部分增加 p-cont 类，取消首行缩进
+  const botHtml = `<div class="p${isKaiti ? ' ki' : ''} p-cont">${applyKaodian(buildInline(rightTokens, opts, rightTerms), opts)}</div>`;
+
+  return [
+    { id: block.id + '_t', type: 'paragraph', terms: leftTerms, tokens: leftTokens, isKaiti, html: topHtml },
+    { id: block.id + '_b', type: 'paragraph', terms: rightTerms, tokens: rightTokens, isKaiti, html: botHtml }
+  ];
+}
+
+function trySplitQuestion(block: RenderBlock, maxHeight: number, measureDiv: HTMLElement, opts: ExportOptions): [RenderBlock, RenderBlock] | null {
+  const q = block.qData;
+  if (!q) return null;
+
+  // 尝试将题干(及选项)与解析分离开
+  let topHtml = `<div class="qb"><div class="qb-hd"><span class="qtype">${esc(q.qType)}</span><span class="qno">第 ${esc(q.num)} 题</span></div><div class="qs">${esc(q.stem)}</div>`;
+  if (q.options.length) topHtml += `<div class="qo">${q.options.map((o:string) => `<div class="qoi">${esc(o)}</div>`).join('')}</div>`;
+  topHtml += `</div>`;
+
+  measureDiv.innerHTML = topHtml;
+  const el = measureDiv.firstElementChild as HTMLElement;
+  const h = el.getBoundingClientRect().height + parseFloat(window.getComputedStyle(el).marginTop) + parseFloat(window.getComputedStyle(el).marginBottom);
+
+  if (h > maxHeight) return null; // 连题干都放不下，直接整个换页
+
+  let botHtml = `<div class="qb qb-cont"><div class="qa">`;
+  if (q.answer) {
+    botHtml += `<span class="qa-ans">答案：${esc(q.answer)}</span>`;
+    if (opts.analysis) {
+      if (q.kp) botHtml += `<div class="q-kp">📌 ${esc(q.kp)}</div>`;
+      if (q.analysis) botHtml += `<div class="qan">${esc(q.analysis)}</div>`;
+    }
+  }
+  botHtml += `</div></div>`;
+
+  return [
+    { id: block.id + '_t', type: 'question', terms: [], html: topHtml, qData: null },
+    { id: block.id + '_b', type: 'question', terms: [], html: botHtml, qData: null }
+  ];
 }
 
 export async function paginateToA4(sections: PageSection[], opts: ExportOptions): Promise<A4PageData[]> {
@@ -171,22 +230,19 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
   const maxContentHeight = A4_HEIGHT_PX - PAGE_PADDING_TOP - PAGE_PADDING_BOTTOM - HEADER_HEIGHT - FOOTER_HEIGHT;
 
   for (const section of sections) {
-    const blocks = createRenderBlocks(section, opts);
+    const queue = createRenderBlocks(section, opts);
     let currentPage: A4PageData = { pageNum, sectionTitle: section.section, knPoint: section.knPoint, blocks: [], footnotes: [] };
     let currentHeight = 0;
-    measureDiv.innerHTML = ''; 
 
-    for (const block of blocks) {
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = block.html;
-      const el = wrapper.firstElementChild as HTMLElement;
+    while (queue.length > 0) {
+      const block = queue.shift()!;
+      measureDiv.innerHTML = block.html;
+      const el = measureDiv.firstElementChild as HTMLElement;
       if (!el) continue;
-      measureDiv.appendChild(el);
       
       const blockHeight = el.getBoundingClientRect().height;
-      const computedStyle = window.getComputedStyle(el);
-      const marginHeight = parseFloat(computedStyle.marginTop) + parseFloat(computedStyle.marginBottom);
-      const totalBlockHeight = blockHeight + marginHeight;
+      const style = window.getComputedStyle(el);
+      const totalBlockHeight = blockHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
 
       const newFootnotes = block.terms.filter(t => !currentPage.footnotes.includes(t));
       let addedFootnoteHeight = 0;
@@ -195,24 +251,41 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
         if (currentPage.footnotes.length === 0) addedFootnoteHeight += FOOTNOTE_HEADER_HEIGHT;
       }
 
-      if (currentHeight + totalBlockHeight + addedFootnoteHeight > maxContentHeight && currentPage.blocks.length > 0) {
+      const projectedHeight = currentHeight + totalBlockHeight + (currentHeight === 0 ? 0 : addedFootnoteHeight);
+
+      if (projectedHeight <= maxContentHeight || currentHeight === 0) {
+        // 放得下，或者页面是空的（防止无限死循环）
+        currentPage.blocks.push(block);
+        if (opts.footnotes) newFootnotes.forEach(t => currentPage.footnotes.push(t));
+        currentHeight += totalBlockHeight + (currentHeight === 0 ? 0 : addedFootnoteHeight);
+      } else {
+        // 🌟 放不下了，触发节点切片！
+        const availableHeight = maxContentHeight - currentHeight - (currentHeight === 0 ? 0 : addedFootnoteHeight);
+        let splitResult: [RenderBlock, RenderBlock] | null = null;
+
+        if (block.type === 'paragraph' && block.tokens) {
+          splitResult = trySplitParagraph(block, availableHeight, measureDiv, opts);
+        } else if (block.type === 'question' && block.qData) {
+          splitResult = trySplitQuestion(block, availableHeight, measureDiv, opts);
+        }
+
+        if (splitResult) {
+          const [top, bottom] = splitResult;
+          currentPage.blocks.push(top);
+          if (opts.footnotes) top.terms.forEach(t => { if (!currentPage.footnotes.includes(t)) currentPage.footnotes.push(t); });
+          queue.unshift(bottom); // 将剩下的部分塞回队列顶部，下一页继续排版
+        } else {
+          queue.unshift(block); // 无法切片（比如高度过小或不支持的块），整体推到下一页
+        }
+
+        // 封顶当前页
         pages.push(currentPage);
         pageNum++;
         currentPage = { pageNum, sectionTitle: section.section, knPoint: section.knPoint, blocks: [], footnotes: [] };
         currentHeight = 0;
-        measureDiv.innerHTML = ''; 
-        measureDiv.appendChild(el); 
       }
-
-      currentPage.blocks.push(block);
-      if (opts.footnotes) newFootnotes.forEach(t => currentPage.footnotes.push(t));
-      currentHeight += totalBlockHeight + (currentHeight === 0 ? 0 : addedFootnoteHeight); 
     }
-
-    if (currentPage.blocks.length > 0) {
-      pages.push(currentPage);
-      pageNum++;
-    }
+    if (currentPage.blocks.length > 0) { pages.push(currentPage); pageNum++; }
   }
 
   document.body.removeChild(measureDiv);

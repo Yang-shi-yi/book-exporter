@@ -166,8 +166,21 @@ textarea:focus { border-color: #c89a3c; }
 .empty-state .ico { font-size: 40px; font-weight: bold; border: 2px dashed #555; display: inline-block; padding: 20px 30px; margin-bottom: 10px; opacity: 0.5;}
 
 @media print {
-  .sidebar { display: none !important; }
-  .app-layout { background: white; display: block; height: auto; overflow: visible;}
-  .preview-area { padding: 0; background: transparent; overflow: visible; display: block;}
+  .sidebar { 
+    display: none !important; 
+  }
+  .app-layout { 
+    display: block !important; 
+    height: auto !important; 
+    overflow: visible !important; 
+    background: white !important;
+  }
+  .preview-area { 
+    display: block !important; 
+    height: auto !important; 
+    overflow: visible !important; 
+    padding: 0 !important; 
+    background: white !important;
+  }
 }
 </style>

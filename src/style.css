@@ -53,3 +53,29 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 
 /* 测量层去干扰设定 */
 .measurement-layer { margin: 0 !important; box-shadow: none !important; }
+/* 🌟 新增：跨页切断元素的无缝衔接样式 */
+.p.p-cont { 
+  text-indent: 0; /* 跨页的后续段落取消首行缩进，符合专业出版物排版规范 */
+}
+
+.qb.qb-cont { 
+  border-top-width: 0; 
+  border-top-left-radius: 0; 
+  border-top-right-radius: 0; 
+  margin-top: 0; 
+  padding-top: 4px; 
+}
+
+.qb.qb-cont .qa { 
+  border-top: none; 
+  padding-top: 0; 
+}
+
+/* 🌟 新增：解除全局打印高度和溢出限制 🌟 */
+@media print {
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+}
