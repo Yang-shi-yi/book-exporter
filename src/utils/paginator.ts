@@ -260,7 +260,7 @@ function trySplitParagraph(block: RenderBlock, availableHeight: number, measureD
   ];
 }
 
-function trySplitQuestion(block: RenderBlock, availableHeight: number, measureDiv: HTMLElement, opts: ExportOptions, prevMarginBottom: number, currentFootnotes: string[]): [RenderBlock, RenderBlock] | null {
+function trySplitQuestion(block: RenderBlock, availableHeight: number, measureDiv: HTMLElement, opts: ExportOptions, prevMarginBottom: number): [RenderBlock, RenderBlock] | null {
   const q = block.qData;
   if (!q) return null;
 
@@ -369,7 +369,7 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
           // 传入 remainingSpace 和 currentPage.footnotes
           splitResult = trySplitParagraph(block, remainingSpace, measureDiv, opts, prevMarginBottom, currentPage.footnotes);
         } else if (block.type === 'question' && block.qData) {
-          splitResult = trySplitQuestion(block, remainingSpace, measureDiv, opts, prevMarginBottom, currentPage.footnotes);
+          splitResult = trySplitQuestion(block, remainingSpace, measureDiv, opts, prevMarginBottom);
         }
 
         if (splitResult) {
