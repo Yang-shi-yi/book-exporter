@@ -34,15 +34,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
   margin: 24px 0 12px;
 }
 
-/* 🌟 优化 2：h3 段落标题 - 彻底移除 border-bottom 横线 */
+/* 修改 h3：margin-bottom 改为 0，margin-top 保留 16px，并删除 :first-child 重置 */
 .h3 { 
   font-size: 12.5px; 
   font-weight: 600; 
   color: #1e1206; 
   line-height: 1.7; 
-  margin: 16px 0 7px; 
+  margin: 16px 0 0;       /* ← bottom 从 7px 改为 0 */
   padding-bottom: 0; 
-  border-bottom: none; /* 明确设置为 none 确保横线消失 */
+  border-bottom: none;
 }
 
 .h4 { 
@@ -53,12 +53,24 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
   font-style: italic; 
   margin: 12px 0 5px;
 }
-/* 🌟 优化 2：h3、h4 段落标题 - 彻底移除 margin-top，避免段落间不必要的间距 */
-.h2:first-child, .h3:first-child, .h4:first-child { margin-top:0;}
+/* 修改这行：移除 h3、h4，只保留 h2 */
+.h2:first-child { margin-top: 0; }
 
 /* 书籍正文基准段落：两端对齐、首行缩进、黄金行高 */
-.p { font-size:12px; line-height:2.05; color:var(--ink); margin-bottom:7px; text-align:justify; text-justify: inter-ideograph; text-indent:2em; word-break:break-word;}
-.p:last-child { margin-bottom:0;}
+.p { 
+  font-size:12px; 
+  line-height:2.05; 
+  color:var(--ink); 
+  margin-top: 7px;      /* ← 新增 */
+  margin-bottom: 7px; 
+  text-align:justify; 
+  text-justify: inter-ideograph; 
+  text-indent:2em; 
+  word-break: normal; 
+  overflow-wrap: break-word; 
+}
+.p:first-child { margin-top: 0; }   /* ← 避免第一段多余顶部空白 */
+.p:last-child  { margin-bottom: 0; }
 
 /* 行内修饰 */
 .ul { text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:3px; text-decoration-thickness:1.5px;}
@@ -73,7 +85,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .ann-body { background:var(--ann-bg); padding:12px 14px 14px; display:flex; flex-direction:column; gap:0;}
 .ann-h { font-size:11.5px; font-weight:600; color:#5a3c08; margin:10px 0 4px; text-indent:0;}
 .ann-h:first-child { margin-top:0;}
-.ann-p { font-size:11.5px; line-height:1.95; color:var(--ann-text); margin-bottom:4px; text-align:justify; text-indent:2em; word-break:break-word;}
+.ann-p { font-size:11.5px; line-height:1.95; color:var(--ann-text); margin-bottom:4px; text-align:justify; text-indent:2em; word-break: normal; overflow-wrap: break-word;}
 .ann-p.no-i { text-indent:0;}
 
 /* 例题框 */
@@ -81,13 +93,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .qb-hd { display:flex; align-items:center; gap:7px; margin-bottom:7px; padding-bottom:6px; border-bottom:1px solid #d8cca8;}
 .qtype { font-size:8px; font-weight:700; letter-spacing:.1em; color:white; background:var(--accent); padding:2px 7px; border-radius:2px; text-transform:uppercase;}
 .qno { font-size:9.5px; color:var(--mid); font-weight:600;}
-.qs { font-size:11.5px; font-weight:600; line-height:1.9; color:var(--ink); margin-bottom:9px;}
+.qs { font-size:11.5px; font-weight:600; line-height:1.9; color:var(--ink); margin-bottom:9px; word-break: normal; overflow-wrap: break-word;}
 .qo { display:grid; grid-template-columns:1fr 1fr; gap:2px 18px; margin-bottom:9px;}
 .qoi { font-size:11px; color:#3a3020; line-height:1.75; padding:1px 0;}
 .qa { border-top:1px dashed #d0c4a0; padding-top:8px; display:flex; flex-direction:column; gap:6px;}
 .qa-ans { font-size:11px; font-weight:700; color:var(--accent); background:#8b1a1a0c; border:1px solid #8b1a1a20; padding:2px 9px; border-radius:2px; align-self:flex-start;}
 .q-kp { font-size:9.5px; font-weight:700; color:var(--ann-label); background:var(--ann-header); border:1px solid var(--ann-border); padding:2px 8px; border-radius:2px; display:inline-block; margin-bottom:4px;}
-.qan { font-size:10.5px; line-height:1.85; color:#3a3020; font-style:italic;}
+.qan { font-size:10.5px; line-height:1.85; color:#3a3020; font-style:italic; word-break: normal; overflow-wrap: break-word;}
 
 /* 测量层去干扰设定 */
 .measurement-layer { margin: 0 !important; box-shadow: none !important; }

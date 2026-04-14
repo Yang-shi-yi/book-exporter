@@ -94,7 +94,7 @@ function createRenderBlocks(section: PageSection, opts: ExportOptions): RenderBl
         level = 'h1';
       } else if (/^第[一二三四五六七八九十\d]+[节章]/.test(txt)) {
         level = 'h2';
-      } else if (/^[一二三四五六七八九十]+[、.]/.test(txt)) {
+      } else if (/^[一二三四五六七八九十\d]+[、.]/.test(txt)) {
         level = 'h3';
       }
       
@@ -177,7 +177,8 @@ function trySplitParagraph(block: RenderBlock, maxHeight: number, measureDiv: HT
     const [leftTokens] = sliceTokens(tokens, mid);
     measureDiv.innerHTML = `<div class="p${isKaiti ? ' ki' : ''}">${applyKaodian(buildInline(leftTokens, opts, []), opts)}</div>`;
     const el = measureDiv.firstElementChild as HTMLElement;
-    const h = el.getBoundingClientRect().height + parseFloat(window.getComputedStyle(el).marginTop) + parseFloat(window.getComputedStyle(el).marginBottom);
+    // const h = el.getBoundingClientRect().height + parseFloat(window.getComputedStyle(el).marginTop) + parseFloat(window.getComputedStyle(el).marginBottom);
+    const h = el.getBoundingClientRect().height + (parseFloat(window.getComputedStyle(el).marginTop) || 0) + (parseFloat(window.getComputedStyle(el).marginBottom) || 0);
     if (h <= maxHeight) { best = mid; low = mid + 1; } else { high = mid - 1; }
   }
 
@@ -206,8 +207,8 @@ function trySplitQuestion(block: RenderBlock, maxHeight: number, measureDiv: HTM
 
   measureDiv.innerHTML = topHtml;
   const el = measureDiv.firstElementChild as HTMLElement;
-  const h = el.getBoundingClientRect().height + parseFloat(window.getComputedStyle(el).marginTop) + parseFloat(window.getComputedStyle(el).marginBottom);
-
+  // const h = el.getBoundingClientRect().height + parseFloat(window.getComputedStyle(el).marginTop) + parseFloat(window.getComputedStyle(el).marginBottom);
+  const h = el.getBoundingClientRect().height + (parseFloat(window.getComputedStyle(el).marginTop) || 0) + (parseFloat(window.getComputedStyle(el).marginBottom) || 0);
   if (h > maxHeight) return null; // 连题干都放不下，直接整个换页
 
   let botHtml = `<div class="qb qb-cont"><div class="qa">`;
@@ -237,10 +238,18 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
 
   const maxContentHeight = A4_HEIGHT_PX - PAGE_PADDING_TOP - PAGE_PADDING_BOTTOM - HEADER_HEIGHT - FOOTER_HEIGHT;
 
+  // 🌟 修复核心：将 currentPage/currentHeight 提升到 section 循环外部
+  // 原来每个 section 都强制开新页，导致即使内容极少也独占一页
+  let currentPage: A4PageData = { pageNum, sectionTitle: '', knPoint: '', blocks: [], footnotes: [] };
+  let currentHeight = 0;
+
   for (const section of sections) {
     const queue = createRenderBlocks(section, opts);
-    let currentPage: A4PageData = { pageNum, sectionTitle: section.section, knPoint: section.knPoint, blocks: [], footnotes: [] };
-    let currentHeight = 0;
+    // 只在当前页为空时才更新页眉元数据（新页从本 section 开始）
+    if (currentPage.blocks.length === 0) {
+      currentPage.sectionTitle = section.section;
+      currentPage.knPoint = section.knPoint;
+    }
 
     while (queue.length > 0) {
       const block = queue.shift()!;
@@ -250,8 +259,13 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
       
       const blockHeight = el.getBoundingClientRect().height;
       const style = window.getComputedStyle(el);
-      const totalBlockHeight = blockHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
-
+      // const totalBlockHeight = blockHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
+      // const totalBlockHeight = blockHeight + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
+      // 增加 || 0 防止 parseFloat 产生 NaN
+      const mt = parseFloat(style.marginTop) || 0;
+      const mb = parseFloat(style.marginBottom) || 0;
+      const totalBlockHeight = blockHeight + mt + mb;
+      
       const newFootnotes = block.terms.filter(t => !currentPage.footnotes.includes(t));
       let addedFootnoteHeight = 0;
       if (opts.footnotes && newFootnotes.length > 0) {
@@ -265,7 +279,8 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
         // 放得下，或者页面是空的（防止无限死循环）
         currentPage.blocks.push(block);
         if (opts.footnotes) newFootnotes.forEach(t => currentPage.footnotes.push(t));
-        currentHeight += totalBlockHeight + (currentHeight === 0 ? 0 : addedFootnoteHeight);
+        // 🌟 修复：始终将脚注高度计入 currentHeight，避免首个 block 的脚注占高被漏算导致后续页面溢出
+        currentHeight += totalBlockHeight + addedFootnoteHeight;
       } else {
         // 🌟 放不下了，触发节点切片！
         const availableHeight = maxContentHeight - currentHeight - (currentHeight === 0 ? 0 : addedFootnoteHeight);
@@ -293,8 +308,12 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
         currentHeight = 0;
       }
     }
-    if (currentPage.blocks.length > 0) { pages.push(currentPage); pageNum++; }
+    // 🌟 修复：移除每个 section 末尾的强制换页。内容将跨 section 继续填充当前页，
+    // 只有 while 循环内容不足时才换页（在上方的 else 分支处理）
   }
+
+  // 所有 section 处理完毕后，推送最后一页
+  if (currentPage.blocks.length > 0) { pages.push(currentPage); }
 
   document.body.removeChild(measureDiv);
   return pages;

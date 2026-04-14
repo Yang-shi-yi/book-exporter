@@ -73,7 +73,16 @@ const renderHtml = (html: string) => {
 .pf .ppn { font-size:8.5px; color:var(--mid); font-weight:600; background:var(--light); border:1px solid var(--rule); padding:1px 8px; border-radius:8px;}
 
 @media print {
-  .a4-paper { margin: 0; box-shadow: none; border-radius: 0; page-break-after: always; break-after: page;}
+  .a4-paper { 
+    margin: 0; 
+    box-shadow: none; 
+    border-radius: 0; 
+    page-break-after: always; 
+    break-after: page;
+    /* 🌟 修复：打印时解除固定高度和溢出裁剪，防止因浏览器缩放/页边距导致内容被截断 */
+    height: auto !important;
+    overflow: visible !important;
+  }
   .a4-paper:last-child { page-break-after: avoid; break-after: avoid; }
 }
 </style>
