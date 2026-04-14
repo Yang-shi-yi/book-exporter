@@ -72,6 +72,24 @@ watch(options, () => {
 
 const doPrint = () => window.print();
 
+// 👇 新增：一键复制脚本到剪贴板的函数
+const copyScript = async () => {
+  try {
+    await navigator.clipboard.writeText(SCRIPT);
+    setStatus('✓ 脚本已复制，请前往目标网页 F12 控制台粘贴并回车执行', 'ok');
+  } catch (err) {
+    setStatus('✗ 复制失败，请在上方输入框内手动全选复制', 'err');
+  }
+};
+
+// 👇 新增：处理文本框聚焦时的全选逻辑，并进行类型断言
+const handleSelectAll = (event: Event) => {
+  const target = event.target as HTMLTextAreaElement; // 断言 target 是一个 textarea 元素
+  if (target) {
+    target.select();
+  }
+};
+
 const SCRIPT = `/* 打开目标页面 F12 -> Console 运行 */
 (async function(){var $t=$('.tooltipstered,.tooltip');if(!$t.length){alert('⚠ 未找到批注');return;}$t.each(function(){try{$(this).tooltipster('show');}catch(e){}$(this).trigger('mouseenter');});var start=Date.now();await new Promise(function(res){(function poll(){var wait=0;$t.each(function(){try{var c=$(this).tooltipster('content');var s=(typeof c==='string'?c:$('<div>').html(c).text()).trim();if(!s||/^loading/i.test(s))wait++;}catch(e){}});if(wait===0||Date.now()-start>8000)res();else setTimeout(poll,250);})();});var d={};$t.each(function(){var term=$(this).text().trim();if(!term||d[term])return;try{var c=$(this).tooltipster('content');var def=(typeof c==='string'?c:$('<div>').html(c).text()).replace(/<[^>]+>/g,'').trim();if(def&&!/^loading/i.test(def))d[term]=def;}catch(e){}try{$(this).tooltipster('hide');}catch(e){}});var n=Object.keys(d).length;if(!n)alert('⚠ 未能获取');else prompt('✓ 复制 JSON：',JSON.stringify(d));})();`;
 </script>
@@ -88,7 +106,13 @@ const SCRIPT = `/* 打开目标页面 F12 -> Console 运行 */
         <div class="sl"><span class="n">1</span>粘贴网页 HTML 源码</div>
         <textarea v-model="rawHTML" placeholder="粘贴完整的 HTML 源码..."></textarea>
       </div>
-
+      <div class="panel-section">
+        <div class="sl"><span class="n" style="background: #4090c8;">✦</span>抓取批注专用脚本 (可选)</div>
+        <textarea class="sm-textarea" readonly :value="SCRIPT" @focus="handleSelectAll" style="margin-bottom: 8px;"></textarea>
+        <button class="btn-primary" style="background: #4090c8; color: white;" @click="copyScript">
+          📋 一键复制注入脚本
+        </button>
+      </div>
       <div class="panel-section">
         <div class="sl"><span class="n">2</span>批注映射表 (JSON)</div>
         <textarea class="sm-textarea" v-model="jsonInput" @change="handleImportJSON" placeholder='{"名词":"解释"}'></textarea>

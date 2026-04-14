@@ -71,6 +71,24 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
     if (!map.has(key)) {
       map.set(key, { title: sec, knPoint: kn, items: [], seenIds: new Set() });
       order.push(key);
+
+      // 🌟 优化：将章节名和知识点也作为“正文段落”手动注入到 items 数组中
+      const entry = map.get(key)!;
+      if (sec) {
+        entry.items.push({ 
+          type: 'h', 
+          plain: sec, 
+          tokens: [{ t: 'tx', v: sec }] 
+        });
+      }
+      // if (kn) {
+      //   entry.items.push({ 
+      //     type: 'p', 
+      //     plain: kn, 
+      //     tokens: [{ t: 'tx', v: kn }],
+      //     kaiti: true // 给知识点设置楷体样式，以示区分
+      //   });
+      // }
     }
     const entry = map.get(key)!;
     if (!entry.knPoint && kn) entry.knPoint = kn;
@@ -88,7 +106,11 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
       if (h3) {
         const tokens = parseInline(h3);
         const plain = plainText(tokens).trim();
-        if (plain && plain !== sec && !(/^第[一二三四五六七八九十\d]+节/.test(plain) && plain === sec)) {
+        // if (plain && plain !== sec && !(/^第[一二三四五六七八九十\d]+节/.test(plain) && plain === sec)) {
+        //   entry.items.push({ type: 'h', tokens, plain });
+        // }
+        // ✅ 改为直接推入，不再进行排除：
+        if (plain) {
           entry.items.push({ type: 'h', tokens, plain });
         }
       }

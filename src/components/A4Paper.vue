@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import type { A4PageData, ExportOptions } from '../types/book';
 
 const props = defineProps<{
