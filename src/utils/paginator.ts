@@ -94,8 +94,12 @@ function createRenderBlocks(section: PageSection, opts: ExportOptions): RenderBl
         level = 'h1';
       } else if (/^第[一二三四五六七八九十\d]+[节章]/.test(txt)) {
         level = 'h2';
-      } else if (/^[一二三四五六七八九十\d]+[、.]/.test(txt)) {
+      } else if (/^[一二三四五六七八九十]+[、.]/.test(txt)) {
+        // 🌟 大写（如：一、二、三、）：继续使用原有的 h3 样式
         level = 'h3';
+      } else if (/^\d+[、.]/.test(txt)) {
+        // 🌟 小写（如：1. 2. 3.）：分配一个全新的 h3-sub 类名
+        level = 'h3-sub';
       }
       
       blocks.push({
@@ -245,7 +249,8 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
   measureDiv.style.cssText = `position:absolute; visibility:hidden; top:-9999px; width:794px; padding:60px 68px 68px 74px; font-family:'Noto Serif SC',serif;`;
   document.body.appendChild(measureDiv);
 
-  const maxContentHeight = A4_HEIGHT_PX - PAGE_PADDING_TOP - PAGE_PADDING_BOTTOM - HEADER_HEIGHT - FOOTER_HEIGHT;
+  const SAFE_BUFFER = 15; // 🌟 新增：预留 15px 的安全误差带，确保页脚下方有绝对的空白区
+  const maxContentHeight = A4_HEIGHT_PX - PAGE_PADDING_TOP - PAGE_PADDING_BOTTOM - HEADER_HEIGHT - FOOTER_HEIGHT - SAFE_BUFFER;
 
   // 🌟 修复核心：将 currentPage/currentHeight 提升到 section 循环外部
   // 原来每个 section 都强制开新页，导致即使内容极少也独占一页

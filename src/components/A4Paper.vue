@@ -73,16 +73,32 @@ const renderHtml = (html: string) => {
 .pf .ppn { font-size:8.5px; color:var(--mid); font-weight:600; background:var(--light); border:1px solid var(--rule); padding:1px 8px; border-radius:8px;}
 
 @media print {
+  /* 🌟 1. 新增 @page 规则：强制声明纸张为 A4，并彻底剥夺浏览器的默认边距 */
+  @page {
+    size: A4;
+    margin: 0mm; 
+  }
+
   .a4-paper { 
     margin: 0; 
     box-shadow: none; 
     border-radius: 0; 
     page-break-after: always; 
     break-after: page;
-    /* 🌟 修复：打印时解除固定高度和溢出裁剪，防止因浏览器缩放/页边距导致内容被截断 */
-    height: auto !important;
-    overflow: visible !important;
+    
+    /* 🌟 2. 核心修改：放弃 height: auto，锁死物理高度并隐藏溢出 */
+    height: 297mm !important;      /* 标准 A4 纸物理高度 */
+    max-height: 297mm !important;  
+    overflow: hidden !important;   /* 暴力裁掉任何超出 297mm 的亚像素毛边，杜绝空页 */
+    
+    /* 修复某些浏览器打印时背景色/边框丢失的问题 */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  .a4-paper:last-child { page-break-after: avoid; break-after: avoid; }
+  
+  .a4-paper:last-child { 
+    page-break-after: avoid; 
+    break-after: avoid; 
+  }
 }
 </style>
