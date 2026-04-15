@@ -10,6 +10,7 @@ const jsonInput = ref('');
 const rawSections = ref<PageSection[]>([]);
 const a4Pages = ref<A4PageData[]>([]);
 const isPaginating = ref(false);
+const currentBookName = ref('标准打印教材'); // 🌟 新增：保存当前书名状态
 
 const tooltips = ref<string[]>([]);
 const definitions = reactive<Record<string, string>>({});
@@ -32,7 +33,7 @@ const processContent = async () => {
   
   await new Promise(r => setTimeout(r, 50)); 
   try {
-    a4Pages.value = await paginateToA4(rawSections.value, options);
+    a4Pages.value = await paginateToA4(rawSections.value, options, currentBookName.value);
     setStatus(`✓ 排版完成：共生成 ${a4Pages.value.length} 页 A4 纸张`, 'ok');
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -48,6 +49,7 @@ const handleParse = async () => {
     const res = parseRawHTML(rawHTML.value);
     rawSections.value = res.pages;
     tooltips.value = res.tooltips;
+    currentBookName.value = res.bookName; // 🌟 接收解析出的动态书名
     await processContent();
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);

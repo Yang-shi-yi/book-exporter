@@ -1,8 +1,19 @@
 import type { PageSection, ContentBlock, Token } from '../types/book';
 
-export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips: string[] } {
+export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips: string[], bookName: string } {
   const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
   const tooltips = new Set<string>();
+
+  // 🌟 新增：动态提取书籍/课程名称
+  let bookName = '';
+  const titleP = doc.querySelector('.courseStudy-head .tit-txt');
+  const pathH3 = doc.querySelector('.coursePath-head h3');
+  
+  if (titleP && titleP.textContent) bookName += titleP.textContent.trim();
+  if (pathH3 && pathH3.textContent) {
+      bookName += (bookName ? ' · ' : '') + pathH3.textContent.trim();
+  }
+  if (!bookName) bookName = '标准打印教材'; // 默认保底名称
 
   // 1. 收集 tooltip
   doc.querySelectorAll('span.tooltip, span.tooltipstered').forEach(el => {
@@ -152,7 +163,7 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
     return { section: e.title, knPoint: e.knPoint, items: e.items };
   }).filter(s => s.items.length > 0);
 
-  return { pages, tooltips: Array.from(tooltips) };
+  return { pages, tooltips: Array.from(tooltips), bookName };
 }
 
 function parseInline(el: Element): Token[] {

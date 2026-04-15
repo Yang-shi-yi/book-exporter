@@ -92,7 +92,8 @@ function createRenderBlocks(section: PageSection, opts: ExportOptions): RenderBl
       // 🌟 优化3：如果文本内容等于当前章节的知识模块（或以知识模块开头），则分配 h1 大字体级别
       if (txt === section.knPoint || /^知识模块/.test(txt)) {
         level = 'h1';
-      } else if (/^第[一二三四五六七八九十\d]+[节章]/.test(txt)) {
+      } else if (txt === section.section || /^第[一二三四五六七八九十\d]+[节章组课篇单元]/.test(txt)) {
+      // 🌟 修复：加入 txt === section.section 绝对匹配，并在正则中补充“组”、“课”、“篇”、“单元”等关键字
         level = 'h2';
       } else if (/^[一二三四五六七八九十]+[、.]/.test(txt)) {
         // 🌟 大写（如：一、二、三、）：继续使用原有的 h3 样式
@@ -297,7 +298,7 @@ function trySplitQuestion(block: RenderBlock, availableHeight: number, measureDi
   ];
 }
 
-export async function paginateToA4(sections: PageSection[], opts: ExportOptions): Promise<A4PageData[]> {
+export async function paginateToA4(sections: PageSection[], opts: ExportOptions, bookName: string = '标准打印教材'): Promise<A4PageData[]> {
   const pages: A4PageData[] = [];
   let pageNum = 1;
 
@@ -312,7 +313,7 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
   const maxContentHeight = A4_HEIGHT_PX - PAGE_PADDING_TOP - PAGE_PADDING_BOTTOM - HEADER_HEIGHT - FOOTER_HEIGHT - SAFE_BUFFER;
   // 🌟 修复核心：将 currentPage/currentHeight 提升到 section 循环外部
   // 原来每个 section 都强制开新页，导致即使内容极少也独占一页
-  let currentPage: A4PageData = { pageNum, sectionTitle: '', knPoint: '', blocks: [], footnotes: [] };
+  let currentPage: A4PageData = { pageNum, sectionTitle: '', knPoint: '', bookName, blocks: [], footnotes: [] };
   let currentHeight = 0;
   let prevMarginBottom = 0; // 🌟 1. 新增：记录上一个块的底部边距
 
@@ -384,7 +385,7 @@ export async function paginateToA4(sections: PageSection[], opts: ExportOptions)
         // 封顶当前页
         pages.push(currentPage);
         pageNum++;
-        currentPage = { pageNum, sectionTitle: section.section, knPoint: section.knPoint, blocks: [], footnotes: [] };
+        currentPage = { pageNum, sectionTitle: section.section, knPoint: section.knPoint, bookName, blocks: [], footnotes: [] };
         currentHeight = 0;
         prevMarginBottom = 0; // 🌟 5. 翻页时重置底部边距
       }

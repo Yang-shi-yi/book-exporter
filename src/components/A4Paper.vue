@@ -45,7 +45,7 @@ const renderHtml = (html: string) => {
     </div>
 
     <div class="pf">
-      <span class="pcn">马克思主义基本原理概论 · 精细阐释教材</span>
+      <span class="pcn">{{ page.bookName || '标准打印教材' }}</span>
       <span class="ppn">{{ page.pageNum }}</span>
     </div>
   </div>

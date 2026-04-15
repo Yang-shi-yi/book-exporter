@@ -41,6 +41,7 @@ export interface A4PageData {
   pageNum: number;
   sectionTitle: string;
   knPoint: string;
+  bookName?: string; // 🌟 新增：动态书名
   blocks: RenderBlock[];
   footnotes: string[];
 }
