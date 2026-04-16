@@ -92,6 +92,8 @@ const renderHtml = (html: string) => {
     max-height: 297mm !important;  
     overflow: hidden !important;   /* 暴力裁掉任何超出 297mm 的亚像素毛边，杜绝空页 */
     
+    /* 🌟 新增：强制打印时背景为纯白，防止打印机打网点模拟浅色背景 */
+    background: #ffffff !important;
     /* 修复某些浏览器打印时背景色/边框丢失的问题 */
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
