@@ -7,6 +7,25 @@ const props = defineProps<{
   defs: Record<string, string>;
 }>();
 
+// 在 <script setup lang="ts"> 中，添加以下高容错匹配函数
+const getDef = (term: string) => {
+  // 1. 尝试精确匹配
+  if (props.defs[term]) return props.defs[term];
+  
+  // 2. 高容错匹配：剔除所有空白符、换行符，并统一转为小写
+  const normalize = (s: string) => s.replace(/\s+/g, '').toLowerCase();
+  const normalizedTerm = normalize(term);
+  
+  for (const key in props.defs) {
+    if (normalize(key) === normalizedTerm) {
+      return props.defs[key];
+    }
+  }
+  
+  // 3. 如果依然找不到，再返回默认兜底文字
+  return '<em style="color:#bbb">见教材</em>';
+};
+
 // 动态替换上标序号：将占位符替换为本页的真实序号
 const renderHtml = (html: string) => {
   if (!props.options.footnotes || !props.options.sup) return html;
@@ -40,7 +59,7 @@ const renderHtml = (html: string) => {
       <div class="fe" v-for="(term, i) in page.footnotes" :key="term">
         <span class="fn-n">[{{ i + 1 }}]</span>
         <span class="fn-t">{{ term }}</span>
-        <span class="fn-d" v-html="defs[term] || '<em style=\'color:#bbb\'>见教材</em>'"></span>
+        <span class="fn-d" v-html="getDef(term)"></span>
       </div>
     </div>
 

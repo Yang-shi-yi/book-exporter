@@ -57,14 +57,19 @@ const handleParse = async () => {
   }
 };
 
+// 找到 handleImportJSON 函数，将其替换为以下代码：
 const handleImportJSON = () => {
+  const val = jsonInput.value.trim();
+  if (!val) return;
   try {
-    const data = JSON.parse(jsonInput.value);
+    const data = JSON.parse(val);
+    // 清空旧的 definitions，防止残留数据干扰
+    Object.keys(definitions).forEach(k => delete definitions[k]);
     Object.assign(definitions, data);
-    setStatus(`✓ 导入 ${Object.keys(data).length} 条注释，预览已更新`, 'ok');
+    setStatus(`✓ 成功导入 ${Object.keys(data).length} 条注释`, 'ok');
     if (rawSections.value.length) processContent(); 
   } catch(err) {
-    setStatus('✗ JSON 格式错误', 'err');
+    setStatus('⚠ JSON 格式尚未就绪或存在错误', 'warn');
   }
 };
 
@@ -117,7 +122,7 @@ const SCRIPT = `/* 打开目标页面 F12 -> Console 运行 */
       </div>
       <div class="panel-section">
         <div class="sl"><span class="n">2</span>批注映射表 (JSON)</div>
-        <textarea class="sm-textarea" v-model="jsonInput" @change="handleImportJSON" placeholder='{"名词":"解释"}'></textarea>
+        <textarea class="sm-textarea" v-model="jsonInput" @input="handleImportJSON" placeholder='{"名词":"解释"}'></textarea>
       </div>
 
       <div class="panel-section">
