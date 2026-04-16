@@ -5,11 +5,13 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
   const tooltips = new Set<string>();
 
   // 🌟 新增：动态提取书籍/课程名称
-  let bookName = '';
   const titleP = doc.querySelector('.courseStudy-head .tit-txt');
   const pathH3 = doc.querySelector('.coursePath-head h3');
-  
-  if (titleP && titleP.textContent) bookName += titleP.textContent.trim();
+
+  // 单独保存全局大标题（例如："语法学习项目7：名词性从句（下）"）
+  const globalTitle = titleP && titleP.textContent ? titleP.textContent.trim() : '';
+
+  let bookName = globalTitle;
   if (pathH3 && pathH3.textContent) {
       bookName += (bookName ? ' · ' : '') + pathH3.textContent.trim();
   }
@@ -74,8 +76,15 @@ export function parseRawHTML(rawHtml: string): { pages: PageSection[], tooltips:
     if (!sec) {
       wrap.querySelectorAll('[id^="div_kid_"] h3').forEach(h3 => {
         const t = h3.textContent?.trim() || '';
-        if (!sec && /第[一二三四五六七八九十\d]+节/.test(t)) sec = t;
+        if (!sec && /第[一二三四五六七八九十\d]+[节章组课篇单元]/.test(t)) sec = t;
       });
+    }
+
+    // 🌟🌟🌟 新增智能合并替换逻辑 🌟🌟🌟
+    // 如果全局标题(globalTitle)存在，并且包含了从书页里抓出来的短标题(sec)
+    // 就直接用完整的全局标题覆盖它
+    if (globalTitle && sec && globalTitle.includes(sec)) {
+        sec = globalTitle; 
     }
 
     const key = sec || '__root__';
